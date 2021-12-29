@@ -15,5 +15,7 @@ using namespace std;
 
 int main(){
     Server *Server = Server::getInstance();
+    Server->setup();
     Server->Running();//running
+    Server->~Server();
 }

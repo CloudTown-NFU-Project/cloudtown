@@ -16,8 +16,8 @@ void ConnectionEvent::ClientJoinEvent(Client & client){
     }
 
     // now can do refresh the map
-    usleep(1000*1000);//delay 1 sec
-    client.getSocket()->~socketHelper();
+    usleep(10000*1000);//delay 1 sec
+    //client.getSocket()->~socketHelper();
 }
 
 void ConnectionEvent::ClientLeaveEvent(Client & client){

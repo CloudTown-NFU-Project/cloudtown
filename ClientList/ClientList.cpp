@@ -41,7 +41,11 @@ ClientList::ClientList(const ClientList & b){
 		tail->next = sentinel;
 	}
 }
-
+void ClientList::InsertFront(Client* e){
+	ClientNode *newNode = new ClientNode();
+	newNode->data = Client(e);
+	InsertFront(newNode);
+} 
 
 void ClientList::InsertFront(const Client& e){
 	ClientNode *newNode = new ClientNode(e);
@@ -63,6 +67,11 @@ void ClientList::InsertFront(ClientNode *newNode){
 	}
 } 
 
+void ClientList::InsertTail(Client* e){ // insert last
+	ClientNode *newNode = new ClientNode();
+	newNode->data = Client(e);
+	InsertTail(newNode);
+} 
 
 void ClientList::InsertTail(const Client& e){ // insert last
 	ClientNode *newNode = new ClientNode(e);

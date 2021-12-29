@@ -18,6 +18,8 @@ class ClientList{
 		ClientList(const ClientList &); // copy constructor
 		void InsertFront(const Client&);
 		void InsertTail(const Client&);
+		void InsertFront(Client*);
+		void InsertTail(Client*);
 		void InsertFront(ClientNode*);
 		void InsertTail(ClientNode*);
 		void InsertSort(ClientNode*, bool(*c)(Client,Client) = nullptr);
