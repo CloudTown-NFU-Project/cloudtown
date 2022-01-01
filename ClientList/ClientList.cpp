@@ -42,12 +42,6 @@ ClientList::ClientList(const ClientList & b){
 	}
 }
 void ClientList::InsertFront(Client* e){
-	ClientNode *newNode = new ClientNode();
-	newNode->data = Client(e);
-	InsertFront(newNode);
-} 
-
-void ClientList::InsertFront(const Client& e){
 	ClientNode *newNode = new ClientNode(e);
 	InsertFront(newNode);
 } 
@@ -68,12 +62,6 @@ void ClientList::InsertFront(ClientNode *newNode){
 } 
 
 void ClientList::InsertTail(Client* e){ // insert last
-	ClientNode *newNode = new ClientNode();
-	newNode->data = Client(e);
-	InsertTail(newNode);
-} 
-
-void ClientList::InsertTail(const Client& e){ // insert last
 	ClientNode *newNode = new ClientNode(e);
 	InsertTail(newNode);
 } 
@@ -107,7 +95,7 @@ void ClientList::print(){
 #include <iostream>
 using namespace std;
 
-void ClientList::Delete(const Client& client){
+void ClientList::Delete(Client* client){
 	int index = 0;
 	if (head == nullptr || sentinel == nullptr) return;
 	ClientNode *current = head;

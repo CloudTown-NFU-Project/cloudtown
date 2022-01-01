@@ -5,14 +5,14 @@ ClientList::Iterator::Iterator(ClientNode* startNode){
 } 
 
 
-Client& ClientList::Iterator::operator*() const{
+Client* ClientList::Iterator::operator*() const{
 	return current->data;
 } 
 
 
 
 Client* ClientList::Iterator::operator->() const{
-	return &current->data;
+	return current->data;
 } 
 
 typename ClientList::Iterator& ClientList::Iterator::operator++(){

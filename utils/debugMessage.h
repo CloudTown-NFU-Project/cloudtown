@@ -12,7 +12,7 @@ enum messageType{
     TEST
 };
 
-bool showdebug = false;
+bool showdebug = true;
 
 class logger{
     

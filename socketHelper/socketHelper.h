@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include "../Packet/Packet.h"
 #include "../Client/Client.h"
 //#define  _WINSOCK_DEPRECATED_NO_WARNINGS
 
@@ -42,10 +43,17 @@ class socketHelper{
         //void send();//send message
         //void recv();//recv message
 
+        void sendEncode(std::string encoded);
+        
+        void sendPacket(BasePacket &packet); // send packet
+        BasePacket* recvPacket();            // recv packet
+
         std::string getIP();
         int getPORT();
         int getSockID();
 
+
+        void unboundSocket();
         ~socketHelper();//destructor
 };
 

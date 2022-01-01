@@ -1,7 +1,7 @@
 #ifndef Events_HPP
 #define Events_HPP
 #include "../Client/Client.h"
-
+#include <string>
 
 
 class ConnectionEvent{
@@ -9,17 +9,22 @@ class ConnectionEvent{
     public:
         ConnectionEvent();
 
-        void ClientJoinEvent(Client &client);
+        void ClientJoinEvent(Client *client);
 
-        void ClientLeaveEvent(Client &client);
+        void ClientLeaveEvent(Client *client);
 
         
 };
+
+typedef struct{
+    Client* client;
+    std::string message;
+}ChatEventData;
 
 class ChatEvent{
     public:
         ChatEvent();
 
-        void ClientChatEvent();
+        void ClientChatEvent(ChatEventData* data);
 };
 #endif

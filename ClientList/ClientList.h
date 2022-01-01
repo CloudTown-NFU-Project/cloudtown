@@ -16,8 +16,6 @@ class ClientList{
 		ClientList();
 		~ClientList();
 		ClientList(const ClientList &); // copy constructor
-		void InsertFront(const Client&);
-		void InsertTail(const Client&);
 		void InsertFront(Client*);
 		void InsertTail(Client*);
 		void InsertFront(ClientNode*);
@@ -28,7 +26,7 @@ class ClientList{
 		static void RetNode(ClientNode*&);
 		void print();// print all list element
 		void Delete(int);
-		void Delete(const Client&);
+		void Delete(Client*);
 		
 		class Iterator;
 		Iterator begin();

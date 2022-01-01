@@ -12,8 +12,8 @@ class Client{
     public:
         Client(std::string,socketHelper *sock=nullptr);
         Client(const Client* copy);//copy constructor
-        friend std::ostream& operator<<(std::ostream&, Client&); // out stream
-        friend std::ostream& operator<<(std::ostream&,const Client&); // out stream
+        ~Client();//destructor
+        friend std::ostream& operator<<(std::ostream&, Client*); // out stream
         bool operator!=(const Client &b){
             return !(this->nickname == b.nickname && this->sock == b.sock);
         }
@@ -23,6 +23,8 @@ class Client{
         bool operator==(Client *b){
             return (this->nickname == b->nickname && this->sock == b->sock);
         }
+        void setNickname(std::string);
+        std::string getNickname();
         socketHelper* getSocket();
 };
 

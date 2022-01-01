@@ -4,11 +4,11 @@
 
 class ClientNode{
 	public:
-		Client data;
+		Client *data;
 		ClientNode *next = nullptr;
-		ClientNode(Client data,ClientNode *next):data(data),next(next){}
-		ClientNode(Client data):data(data),next(nullptr){}
-		ClientNode():data(Client("",nullptr)),next(nullptr){}
+		ClientNode(Client *data,ClientNode *next):data(data),next(next){}
+		ClientNode(Client *data):data(data),next(nullptr){}
+		ClientNode():data(new Client("",nullptr)),next(nullptr){}
 		
 };
 

@@ -7,7 +7,7 @@ class ClientList::Iterator{
 		ClientNode *current;
 	public:
 		Iterator(ClientNode *startNode = 0);
-		Client& operator*() const;
+		Client* operator*() const;
 		Client* operator->() const;
 		ClientList::Iterator& operator++();
 		ClientList::Iterator& operator++(int);

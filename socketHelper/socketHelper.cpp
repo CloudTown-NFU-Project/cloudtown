@@ -82,7 +82,10 @@ bool socketHelper::helper_accept(socketHelper *clientSocket){
 }
 
 #include <unistd.h>
+#include "../utils/debugMessage.h"
 socketHelper::~socketHelper(){
+    logger::print("socket destructor " + to_string(sock_id));
+    if (sock_id == -1) return;
     close(sock_id);
     sock_id = -1;
 }
@@ -98,4 +101,48 @@ int socketHelper::getPORT(){
 
 int socketHelper::getSockID(){
     return sock_id;
+}
+
+void socketHelper::unboundSocket(){
+    if (sock_id == -1) return;
+    close(sock_id);
+    sock_id = -1;
+}
+
+#include "../Packet/Packet.h"
+#include "../Packet/PacketData.h"
+void socketHelper::sendPacket(BasePacket &packet){
+    if (Packet<PlayOutChat>::instanceof(packet)) {
+        Packet<PlayOutChat> p = Packet<PlayOutChat>(packet);
+        sendEncode(p.data->encode());
+    }
+}
+
+BasePacket* socketHelper::recvPacket(){
+    int retVal;
+    char packetLength[11];
+    char packetID[3];
+
+    retVal = recv(sock_id,packetLength,10,0);
+    packetLength[retVal] = '\0';
+    int length = atoi(packetLength);
+
+
+    retVal = recv(sock_id,packetID,2,0);
+    packetID[retVal] = '\0';
+
+    char packetData[length-2+1];
+    retVal = recv(sock_id,packetData, length-2,0);
+    packetData[retVal] = '\0';
+    char msg[1000];
+    sprintf(msg,"Length:%d,PacketID:%s,Data:%s",length,packetID,packetData);
+    logger::print(string(msg),DEBUG);
+    PlayOutChat chat = PlayOutChat(string(packetData));
+    Packet<PlayOutChat> *packet = new Packet<PlayOutChat>(chat);
+    return packet;
+}
+
+
+void socketHelper::sendEncode(std::string encoded){
+    int retVal = send(sock_id,encoded.c_str(),encoded.size(),0);
 }

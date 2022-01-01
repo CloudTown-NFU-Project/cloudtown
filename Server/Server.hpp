@@ -10,6 +10,7 @@
 #include <sys/select.h>// select
 #include <sys/ioctl.h>
 #include <iostream>
+#include <map>
 using namespace std;
 
 
@@ -33,6 +34,7 @@ class Server{
         }
     public:
         static ClientList onlineClient;
+        map<int,Client*> sock_to_client;
         ConnectionEvent *connectionEvent = nullptr;
         ChatEvent *chatEvent = nullptr;
         static Server* getInstance(){
@@ -69,6 +71,7 @@ class Server{
             FD_SET(serverSocket->getSockID(), &masterfds); //insert the master socket file-descriptor into the master fd-set
             maxfd = serverSocket->getSockID(); //set the current known maximum file descriptor count
             logger::print("Server is ready",INFO);
+
         }
 
 
@@ -104,7 +107,9 @@ class Server{
                             handleDisConnection(sock_id);
                             continue;
                         }
-                        cout << "client is sending message " << endl;
+                        handleRecvPacket(sock_id);
+                        
+                        //cout << "client is sending message " << endl;
                     }
                 }
                 //usleep(1*1000);//delay 1 m sec
@@ -121,7 +126,7 @@ class Server{
         void handleNewConnection(){
             //handle new connection when client join
             socketHelper *newConnectedClient = new socketHelper("random socket name (client)");
-
+            
             bool accpectError = serverSocket->helper_accept(newConnectedClient);
             if (accpectError){
                 delete newConnectedClient;
@@ -134,9 +139,9 @@ class Server{
             if (newConnectedClient->getSockID() > maxfd){
                 maxfd = newConnectedClient->getSockID();
             }
-            Client *newClient = new Client("random client name",newConnectedClient);
+            Client *newClient = new Client("default",newConnectedClient);// there may be "only one" that client create , not anywhere else
             onlineClient.InsertTail(newClient);// in this function InserTail(*pointer)
-
+            sock_to_client[newClient->getSocket()->getSockID()] = newClient;
 
             //below may need a thread to use | or i can just do a function pointer that call a event (event) into it
             pthread_t acceptConnection;
@@ -145,8 +150,8 @@ class Server{
 
         static void threadNewConnection(void *newClient){
             Client *join = (Client*) newClient;
-            instance->connectionEvent->ClientJoinEvent(*join);//because of call this even so use thread 
-            delete join;
+            logger::print("make sure not create");
+            instance->connectionEvent->ClientJoinEvent(join);//because of call this even so use thread 
         }
 
         /**
@@ -164,25 +169,51 @@ class Server{
             Client *disconnectClient = nullptr,*pointer_disconnectClient = nullptr;
             for (ClientList::Iterator it = onlineClient.begin();it != onlineClient.end();it++){
                 if (it->getSocket()->getSockID() == dis_sock){
-                    disconnectClient = &(*it);
-                    pointer_disconnectClient = new Client(disconnectClient);
+                    disconnectClient = (*it);
                     break;
                 }
             }
 
-            onlineClient.Delete(*disconnectClient); // remove client from client list
+            onlineClient.Delete(disconnectClient); // remove client from client list
+            sock_to_client[disconnectClient->getSocket()->getSockID()] = nullptr;
             FD_CLR(dis_sock,&masterfds); // remove dis_sock from master fds set
 
-
             //below may need a thread to use | or i can just do a function pointer that call a event (event) into it
+            
             pthread_t disConnection;
-            //disconnectClient = nullptr;
-            pthread_create(&disConnection, NULL,( void* (*)(void*))&(this->threadDisConnection), pointer_disconnectClient);
+            pthread_create(&disConnection, NULL,( void* (*)(void*))&(this->threadDisConnection), disconnectClient);
         }
         static void threadDisConnection(void *disClient){
             Client *disconnectClient = (Client*) disClient;
-            instance->connectionEvent->ClientLeaveEvent(*disconnectClient);
-            delete disconnectClient;
+            instance->connectionEvent->ClientLeaveEvent(disconnectClient);
+            
+            disconnectClient->~Client(); // there may be "only one" that remove the client 
+        }
+
+        void handleRecvPacket(int recv_id){
+            Client *c = sock_to_client[recv_id];
+            if (c == nullptr) {
+                logger::print("recv action client disconnect?",ERROR);
+                return;
+            }
+            BasePacket *packet = c->getSocket()->recvPacket();
+
+            if (Packet<PlayOutChat>::instanceof(*packet)){
+                Packet<PlayOutChat> chatPacket = Packet<PlayOutChat>(*packet);
+                ChatEventData *data = new ChatEventData;
+                data->client = c;
+                data->message = chatPacket.data->getMessage();
+                pthread_t disConnection;
+                pthread_create(&disConnection, NULL,( void* (*)(void*))&(this->threadClientChatEvent), data);
+            }
+            delete packet;
+        }
+
+        static void threadClientChatEvent(void *eventData){
+            ChatEventData * data= (ChatEventData*) eventData;
+            instance->chatEvent->ClientChatEvent(data);
+            
+            delete data;
         }
 
 
@@ -190,11 +221,24 @@ class Server{
             return onlineClient.Length();
         }
 
-        bool isOnline(Client& client){
+        bool isOnline(int sockfd){
+            return sock_to_client[sockfd] != nullptr;
+        }
+
+        bool isOnline(Client* client){
             for (ClientList::Iterator it = onlineClient.begin();it != onlineClient.end();it++){
                 if (client == *it) return true;
             }
             return false;
+        }
+
+        void broadcast(BasePacket &packet,Client* without = nullptr){
+            for (ClientList::Iterator it = onlineClient.begin();it != onlineClient.end();it++){
+                if (without == *it) continue;
+                else{
+                    (*it)->getSocket()->sendPacket(packet);
+                }
+            }
         }
 
         

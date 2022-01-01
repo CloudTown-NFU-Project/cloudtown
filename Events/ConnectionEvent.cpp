@@ -1,32 +1,32 @@
 #include "Events.h"
 #include "../Server/Server.hpp"
 #include <iostream>
+#include "../Packet/Packet.h"
+#include "../Packet/PacketData.h"
+#include <string>
 using namespace std;
 
 ConnectionEvent::ConnectionEvent(){
     
 }
 
-void ConnectionEvent::ClientJoinEvent(Client & client){
+void ConnectionEvent::ClientJoinEvent(Client *client){
     Server* server = Server::getInstance();
-    //some one join the server
-    cout << client << " join the server!!" << endl;
-    if(server->isOnline(client)){
-        cout << "wow" << endl;
-    }
+
+    PlayOutChat playerJoinMessage = PlayOutChat(client->getNickname() + " joined the server. ["+to_string(server->onlineClient.Length())+"/100]"); 
+    Packet<PlayOutChat> packet = Packet<PlayOutChat>(playerJoinMessage); 
+    server->broadcast(packet);
+
 
     // now can do refresh the map
-    usleep(10000*1000);//delay 1 sec
-    //client.getSocket()->~socketHelper();
 }
 
-void ConnectionEvent::ClientLeaveEvent(Client & client){
+void ConnectionEvent::ClientLeaveEvent(Client *client){
     Server* server = Server::getInstance();
-    //some one leave the server
-    cout << client << " leave the server!!" << endl;
-    if(server->isOnline(client)){
-        cout << "so sad" << endl;
-    }
+    
+    PlayOutChat playerLeftMessage = PlayOutChat(client->getNickname() + " left the server. ["+to_string(server->onlineClient.Length())+"/100]"); 
+    Packet<PlayOutChat> packet = Packet<PlayOutChat>(playerLeftMessage); 
+    server->broadcast(packet,client);
 
     // now can do refresh the map
 
