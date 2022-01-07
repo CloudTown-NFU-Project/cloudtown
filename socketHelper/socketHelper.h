@@ -6,20 +6,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <pthread.h>
+#include <unistd.h>
 #include "../Packet/Packet.h"
 #include "../Client/Client.h"
+#include <deque>
 //#define  _WINSOCK_DEPRECATED_NO_WARNINGS
 
 
 class socketHelper{
     friend class Client;
     private:
+        std::deque<std::string> message_buffer;
+        pthread_mutex_t send_mutex;
+        pthread_mutex_t recv_mutex;
         std::string socketName; 
         int BUF_SIZE;
         int sock_id = -1;//invalid socket
         std::string IP;
         int PORT;
         struct sockaddr_in addr;
+        int currentToken = 0; // mutex
+		int acceptToken = 0;  // mutex
     public:
         /**
          * @brief Construct a new socket Helper object
@@ -43,15 +51,22 @@ class socketHelper{
         //void send();//send message
         //void recv();//recv message
 
-        void sendEncode(std::string encoded);
         
-        void sendPacket(BasePacket &packet); // send packet
+        void sendPacket(); // send packet in running function
         BasePacket* recvPacket();            // recv packet
 
         std::string getIP();
         int getPORT();
         int getSockID();
 
+        bool safeRecv(char* buffer,int buffer_size);
+        // make sure that receive the [buffer_size] length  
+
+        void PropSendEncode(std::string encoded);
+        void PreSendEncode(std::string encoded);
+        void PreSendPacket(std::string message);
+        void PreSendPacket(BasePacket &packet);
+        bool hasPacketToSent();
 
         void unboundSocket();
         ~socketHelper();//destructor

@@ -13,20 +13,24 @@ ConnectionEvent::ConnectionEvent(){
 void ConnectionEvent::ClientJoinEvent(Client *client){
     Server* server = Server::getInstance();
 
+   
+
+
     PlayOutChat playerJoinMessage = PlayOutChat(client->getNickname() + " joined the server. ["+to_string(server->onlineClient.Length())+"/100]"); 
-    Packet<PlayOutChat> packet = Packet<PlayOutChat>(playerJoinMessage); 
-    server->broadcast(packet);
+
+    server->broadcast(playerJoinMessage.encode());
 
 
     // now can do refresh the map
+    
 }
 
 void ConnectionEvent::ClientLeaveEvent(Client *client){
     Server* server = Server::getInstance();
-    
+
     PlayOutChat playerLeftMessage = PlayOutChat(client->getNickname() + " left the server. ["+to_string(server->onlineClient.Length())+"/100]"); 
-    Packet<PlayOutChat> packet = Packet<PlayOutChat>(playerLeftMessage); 
-    server->broadcast(packet,client);
+
+    server->broadcast(playerLeftMessage.encode(),client);
 
     // now can do refresh the map
 
