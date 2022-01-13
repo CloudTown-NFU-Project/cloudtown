@@ -34,7 +34,7 @@ void PlayerEvent::PlayerSpawnEvent(Client* client){
     //logger::print("client "+client->getNickname()+" is spawned");
     Server* server = Server::getInstance();
     
-    server->PlayerEventJoin(client);
+    server->updateOnlineClient(client);
     
 
 

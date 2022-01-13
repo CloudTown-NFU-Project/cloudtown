@@ -72,11 +72,8 @@ bool Client::isLoadedClient(){
 }
 
 void Client::recvPacket(){
-    //logger::print("aaaa");
     if (canRecv){
-        
         canRecv = false;
-        //handleClientRecv(this);
         pthread_create(&packetrecv, NULL,( void* (*)(void*))&(handleClientRecv), &(*this));
     }
 }

@@ -22,6 +22,11 @@ public:
         sprintf(result , "%06d", i);
         return string(result);
     }
+    static string TenDigitIntEncode(unsigned long int i) {
+        char result[11];
+        sprintf(result , "%010lu", i);
+        return string(result);
+    }
     static string OneDigitIntEncode(int i) {
         char result[2];
         sprintf(result, "%1d", i);

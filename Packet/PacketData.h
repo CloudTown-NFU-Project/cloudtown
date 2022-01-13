@@ -9,14 +9,17 @@ using namespace std;
 class PlayOutChat {
 private:
     int PacketID = 1;
-    char message[323];//256 + 64[client name limit] + 3 [word '[',']',' ' ]
+    int playerId;     // 6 char
+    char message[256];//256 maximum
 public:
     PlayOutChat() {
     }
-    PlayOutChat(string message) {
+    PlayOutChat(string message,int playerId) {
+        this->playerId = playerId; 
         strcpy(this->message, message.c_str());
     }
     PlayOutChat(const PlayOutChat& copy) {
+        playerId = copy.playerId;
         strcpy(this->message, copy.message);
     }
     string getMessage() {
@@ -25,9 +28,29 @@ public:
     string encode() {
         string code;
         code += PacketHelper::PacketIDEncode(PacketID);
+        code += PacketHelper::SixDigitIntEncode(playerId);
         code += string(message);
         code = PacketHelper::PacketLengthEncode(code) + code;
         return code;
+    }
+    static PlayOutChat decode(char* buf) {
+        PlayOutChat newData;
+        int dplayerId = 0;
+        int index = 0;
+        for (int c = 0; c < 6; c++, index++) {
+            dplayerId = dplayerId * 10 + buf[index] - '0';
+        }
+        int c;
+        for (c = 0;index < strlen(buf);index++,c++){
+            newData.message[c] = buf[index];
+        }
+        newData.message[c] = '\0';
+        newData.playerId = dplayerId;
+        return newData;
+
+    }
+    int getPlayerId(){
+        return playerId;
     }
 };
 
@@ -249,20 +272,23 @@ private:
     int y;           //6char
     int face;        //1char
     int playerId;    //6char
+    char playerNickname[64]; // 64char at most
 public:
     PlayOutPlayerSpawn() {
     }
-    PlayOutPlayerSpawn(int x, int y, int face, int playerId) {
+    PlayOutPlayerSpawn(int x, int y, int face, int playerId,std::string nickname) {
         this->x = x;
         this->y = y;
         this->face = face;
         this->playerId = playerId;
+        strcpy(playerNickname,nickname.c_str());
     }
     PlayOutPlayerSpawn(const PlayOutPlayerSpawn& copy) {
         this->x = copy.x;
         this->y = copy.y;
         this->face = copy.face;
         this->playerId = copy.playerId;
+        strcpy(playerNickname,copy.playerNickname);
     }
     string encode() {
         string code;
@@ -271,11 +297,11 @@ public:
         code += PacketHelper::SixDigitIntEncode(y);
         code += PacketHelper::OneDigitIntEncode(face);
         code += PacketHelper::SixDigitIntEncode(playerId);
+        code += string(playerNickname);
         code = PacketHelper::PacketLengthEncode(code) + code;
         return code;
     }
     static PlayOutPlayerSpawn decode(char* buf) {
-        if (strlen(buf) != 6 + 6 + 1 + 6) return PlayOutPlayerSpawn();
         PlayOutPlayerSpawn newData;
         int dx = 0, dy = 0, dface = 0, dplayerId = 0;
         int index = 0;
@@ -291,6 +317,12 @@ public:
         for (int c = 0; c < 6; c++, index++) {
             dplayerId = dplayerId * 10 + buf[index] - '0';
         }
+        int c;
+        for (c = 0 ; index < strlen(buf);c++,index++){
+            newData.playerNickname[c] = buf[index]; 
+        }
+        newData.playerNickname[c] = '\0'; //debug
+
         newData.x = dx;
         newData.y = dy;
         newData.face = dface;
@@ -309,6 +341,9 @@ public:
     }
     int getPlayerId() {
         return playerId;
+    }
+    string getNickname(){
+        return string(playerNickname);
     }
 };
 
@@ -367,20 +402,23 @@ private:
     int y;           //6char
     int face;        //1char
     int playerId;    //6char
+    char playerNickname[64];
 public:
     PlayOutPlayerLogin() {
     }
-    PlayOutPlayerLogin(int x, int y, int face, int playerId) {
+    PlayOutPlayerLogin(int x, int y, int face, int playerId,std::string nickname) {
         this->x = x;
         this->y = y;
         this->face = face;
         this->playerId = playerId;
+        strcpy(playerNickname,nickname.c_str());
     }
     PlayOutPlayerLogin(const PlayOutPlayerLogin& copy) {
         this->x = copy.x;
         this->y = copy.y;
         this->face = copy.face;
         this->playerId = copy.playerId;
+        strcpy(playerNickname,copy.playerNickname);
     }
     string encode() {
         string code;
@@ -389,11 +427,11 @@ public:
         code += PacketHelper::SixDigitIntEncode(y);
         code += PacketHelper::OneDigitIntEncode(face);
         code += PacketHelper::SixDigitIntEncode(playerId);
+        code += string(playerNickname);
         code = PacketHelper::PacketLengthEncode(code) + code;
         return code;
     }
     static PlayOutPlayerLogin decode(char* buf) {
-        if (strlen(buf) != 6 + 6 + 1 + 6) return PlayOutPlayerLogin();
         PlayOutPlayerLogin newData;
         int dx = 0, dy = 0, dface = 0, dplayerId = 0;
         int index = 0;
@@ -409,6 +447,12 @@ public:
         for (int c = 0; c < 6; c++, index++) {
             dplayerId = dplayerId * 10 + buf[index] - '0';
         }
+        int c;
+        for (c = 0 ; index < strlen(buf);c++,index++){
+            newData.playerNickname[c] = buf[index]; 
+        }
+        newData.playerNickname[c] = '\0'; //debug
+
         newData.x = dx;
         newData.y = dy;
         newData.face = dface;
@@ -428,6 +472,9 @@ public:
     int getPlayerId() {
         return playerId;
     }
+    string getNickname(){
+        return string(playerNickname);
+    }
 };
 
 
@@ -438,27 +485,30 @@ private:
     
     int successFlag; // 1 char
     int playerId;    // 6 chars
+    char playerNickname[64];// 64 chars max
 public:
     PlayInLoginSuccess() {
     }
-    PlayInLoginSuccess(int successFlag, int playerId) {
+    PlayInLoginSuccess(int successFlag, int playerId,std::string nickname) {
         this->successFlag = successFlag;
         this->playerId = playerId;
+        strcpy(playerNickname,nickname.c_str());
     }
     PlayInLoginSuccess(const PlayInLoginSuccess& copy) {
         this->successFlag = copy.successFlag;
         this->playerId = copy.playerId;
+        strcpy(playerNickname,copy.playerNickname);
     }
     string encode() {
         string code;
         code += PacketHelper::PacketIDEncode(PacketID);
         code += PacketHelper::OneDigitIntEncode(successFlag);
         code += PacketHelper::SixDigitIntEncode(playerId);
+        code += string(playerNickname);
         code = PacketHelper::PacketLengthEncode(code) + code;
         return code;
     }
     static PlayInLoginSuccess decode(char* buf) {
-        if (strlen(buf) != 1 + 6) return PlayInLoginSuccess();
         PlayInLoginSuccess newData;
         int dsuccessFlag = 0, dplayerId = 0;
         int index = 0;
@@ -468,6 +518,12 @@ public:
         for (int c = 0; c < 6; c++, index++) {
             dplayerId = dplayerId * 10 + buf[index] - '0';
         }
+        int c;
+        for (c = 0 ; index < strlen(buf);c++,index++){
+            newData.playerNickname[c] = buf[index]; 
+        }
+        newData.playerNickname[c] = '\0'; //debug
+
         newData.successFlag = dsuccessFlag;
         newData.playerId = dplayerId;
         return newData;
@@ -478,6 +534,10 @@ public:
     }
     int getPlayerId() {
         return playerId;
+    }
+
+    string getNickname(){
+        return string(playerNickname);
     }
 };
 

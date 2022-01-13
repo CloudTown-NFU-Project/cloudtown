@@ -16,7 +16,7 @@ void ConnectionEvent::ClientJoinEvent(Client *client){
    
 
 
-    PlayOutChat playerJoinMessage = PlayOutChat(client->getNickname() + " joined the server. ["+to_string(server->onlineClient.Length())+"/100]"); 
+    PlayOutChat playerJoinMessage = PlayOutChat(client->getNickname() + " joined the server. ["+to_string(server->onlineClient.Length())+"/100]",0); 
 
     server->broadcast(playerJoinMessage.encode());
 
@@ -28,7 +28,7 @@ void ConnectionEvent::ClientJoinEvent(Client *client){
 void ConnectionEvent::ClientLeaveEvent(Client *client){
     Server* server = Server::getInstance();
 
-    PlayOutChat playerLeftMessage = PlayOutChat(client->getNickname() + " left the server. ["+to_string(server->onlineClient.Length())+"/100]"); 
+    PlayOutChat playerLeftMessage = PlayOutChat(client->getNickname() + " left the server. ["+to_string(server->onlineClient.Length())+"/100]",0); 
 
     server->broadcast(playerLeftMessage.encode(),client);
 

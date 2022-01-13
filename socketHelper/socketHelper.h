@@ -18,16 +18,12 @@ class socketHelper{
     friend class Client;
     private:
         std::deque<std::string> message_buffer;
-        pthread_mutex_t send_mutex;
-        pthread_mutex_t recv_mutex;
         std::string socketName; 
         int BUF_SIZE;
         int sock_id = -1;//invalid socket
         std::string IP;
         int PORT;
         struct sockaddr_in addr;
-        int currentToken = 0; // mutex
-		int acceptToken = 0;  // mutex
     public:
         /**
          * @brief Construct a new socket Helper object

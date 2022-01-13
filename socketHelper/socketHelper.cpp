@@ -2,8 +2,6 @@
 
 
 socketHelper::socketHelper(std::string socketName,int BUF_SIZE){ // new and get a socket 
-    pthread_mutex_init(&send_mutex, NULL);
-    pthread_mutex_init(&recv_mutex, NULL);
 
     this->BUF_SIZE = BUF_SIZE;
     this->socketName = socketName;
@@ -115,36 +113,25 @@ void socketHelper::unboundSocket(){
 
 #include "../Packet/Packet.h"
 #include "../Packet/PacketData.h"
-// void socketHelper::sendPacket(BasePacket &packet){
-//     if (Packet<PlayOutChat>::instanceof(packet)) {
-//         Packet<PlayOutChat> p = Packet<PlayOutChat>(packet);
-//         sendEncode(p.data->encode());
-//     }
-    
-// }
 
+/**
+ * @brief 
+ * 
+ * @return BasePacket* 
+ */
 BasePacket* socketHelper::recvPacket(){
     int retVal;
     char packetLength[11];
     char packetID[3];
 
-    //retVal = recv(sock_id,packetLength,10,0);
-    //packetLength[retVal] = '\0';
-
     if (safeRecv(packetLength,10)) return nullptr;
-
     int length = atoi(packetLength);
 
 
-    //retVal = recv(sock_id,packetID,2,0);
-    //packetID[retVal] = '\0';
-
     if(safeRecv(packetID,2)) return nullptr;
 
-    char packetData[length-2+1];
-    //retVal = recv(sock_id,packetData, length-2,0);
-    //packetData[retVal] = '\0';
 
+    char packetData[length-2+1];
     if(safeRecv(packetData,length-2)) return nullptr;
 
 
@@ -153,9 +140,9 @@ BasePacket* socketHelper::recvPacket(){
     logger::print(string(msg),DEBUG);
     if (strcmp(packetID,"01") == 0){
         char msg[1000];
-        sprintf(msg,"Length:%d,PacketID:%s,Data:%s",length,packetID,packetData);
-        //logger::print(string(msg),DEBUG);
-        PlayOutChat chat = PlayOutChat(string(packetData));
+        //sprintf(msg,"Length:%d,PacketID:%s,Data:%s",length,packetID,packetData);
+
+        PlayOutChat chat = PlayOutChat::decode(packetData);
         Packet<PlayOutChat> *packet = new Packet<PlayOutChat>(chat);
         return packet;
     }else if (strcmp(packetID,"02") == 0){
@@ -196,25 +183,25 @@ BasePacket* socketHelper::recvPacket(){
 }
 
 
-
 /**
- * @brief 
+ * @brief send packet action 
  * 
  */
 void socketHelper::sendPacket(){
-    //logger::print("the fronted packet has been sent");
-    //logger::print("from sock id:" + to_string(sock_id));
     std::string message = message_buffer.front();
-    //logger::print(message);
     message_buffer.pop_front();
     int retVal = send(sock_id,message.c_str(),message.size(),0);
     if (retVal == -1){
         logger::print("packet sent error",ERROR);
         return;
     }
-    //logger::print("packet sent successed");
 }
 
+/**
+ * @brief add packet to send queue
+ * 
+ * @param packet 
+ */
 void socketHelper::PreSendPacket(BasePacket &packet){
     if (Packet<PlayOutChat>::instanceof(packet)){
         Packet<PlayOutChat> p = Packet<PlayOutChat>(packet);
@@ -222,42 +209,44 @@ void socketHelper::PreSendPacket(BasePacket &packet){
     }
 }
 
+/**
+ * @brief add packet with high priority (may be sent first)
+ *
+ * @param encoded 
+ */
 void socketHelper::PropSendEncode(std::string encoded){
-    
-    //logger::print("added to front |"+encoded);
     message_buffer.push_front(encoded);
 }
 
 
 void socketHelper::PreSendEncode(std::string encoded){
-    
-    //logger::print("added to back  |"+encoded);
     message_buffer.push_back(encoded);
 }
 
 void socketHelper::PreSendPacket(std::string message){
-    
-    //logger::print("added to back  |"+message);
     message_buffer.push_back(message);
-    //after sent may be delete
-
 }
 
+/**
+ * @brief to check if have packet in packet queue
+ * 
+ * @return true 
+ * @return false 
+ */
 bool socketHelper::hasPacketToSent(){
     return message_buffer.size() != 0;
 }
 
 
 /**
- * @brief 
+ * @brief a safe receive make sure will get [ buffer_size ] chars
  * 
- * @param buffer 
- * @param buffer_size 
- * @return true 
+ * @param buffer char*
+ * @param buffer_size receive length
+ * @return true - error happened
  * @return false 
  */
 bool socketHelper::safeRecv(char* buffer,int buffer_size){
-    logger::print("start");
     int left_to_recv = buffer_size;
     int bytes_read = 0;
     char contentBuffer[buffer_size];
@@ -265,19 +254,15 @@ bool socketHelper::safeRecv(char* buffer,int buffer_size){
         memset(contentBuffer,'\0',sizeof(contentBuffer));
         int retVal = recv(sock_id,contentBuffer,left_to_recv,0);
         if (retVal <= 0){
-            //recv error
-            logger::print("error ",ERROR);
+            logger::print("recv error, client may be disconnected ",ERROR);
             return true;
 
         }
         for (int i = 0 ; i < retVal ; i++){
             buffer[bytes_read++] = contentBuffer[i];
         }
-        logger::print("l t r:"+to_string(left_to_recv)+" ret" + to_string(retVal));
         left_to_recv = left_to_recv - retVal;
     }
-    logger::print(to_string(bytes_read)+" , " + to_string(buffer_size),INFO);
     buffer[bytes_read] = '\0';
-    logger::print("left");
     return false;
 }

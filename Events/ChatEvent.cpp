@@ -16,7 +16,7 @@ void ChatEvent::ClientChatEvent(ChatEventData* data){
     
     string titled_message = "["+client->getNickname()+"] "+ message;
     cout << titled_message << endl;
-    PlayOutChat chat = PlayOutChat(titled_message);
+    PlayOutChat chat = PlayOutChat(message,client->getSocket()->getSockID());
 
     server->messageBroadCast(chat.encode());
 }

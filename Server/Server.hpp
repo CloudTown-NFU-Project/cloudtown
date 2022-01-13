@@ -16,6 +16,11 @@ using namespace std;
 
 
 class Server{
+//-----------------------------------------------------------------------------------------------------------------------
+//
+//                    Server Setup is below , including setup() / variable , Event register etc..
+//
+//-----------------------------------------------------------------------------------------------------------------------
     private:
     	static Server *instance;
         socketHelper *serverSocket = nullptr;
@@ -25,6 +30,7 @@ class Server{
         fd_set tempfds;
         //unsigned integer to keep track of maximum fd value, required for select()
         uint16_t maxfd;
+
 
 
         int mastersocket_fd; //master socket which receives new connections
@@ -38,6 +44,7 @@ class Server{
     public:
         static ClientList onlineClient;
         map<int,Client*> sock_to_client;
+        map<string,bool> nickname_list;
         ConnectionEvent *connectionEvent = nullptr;
         ChatEvent *chatEvent = nullptr;
         PlayerEvent *playerEvent = nullptr;
@@ -78,7 +85,14 @@ class Server{
 
         }
 
-        
+//-----------------------------------------------------------------------------------------------------------------------
+//
+//   Server Running() method , make sure that this server only have two thread in running, 
+//   1. Running()       which is for server receive packet from client's conneciton, and check if connected or not
+//   2. bufferRunning() which is for server sending packet to client
+//
+//-----------------------------------------------------------------------------------------------------------------------
+
         /**
          * @brief used for running the server
          * int this function will create a thread that accepting client join the server
@@ -115,12 +129,9 @@ class Server{
                     if (sock_id == serverSocket->getSockID()) continue;
                     if (FD_ISSET(sock_id,&tempfds)){
                         handleRecvPacket(sock_id);
-                        //cout << "client is sending message " << endl;
                     }
-            
                 }
                 //usleep(1*1000);//delay 1 m sec
-                continue;
             }
         }
         void bufferRunning(){
@@ -157,6 +168,38 @@ class Server{
         static void threadRunning(void *param){
             instance->bufferRunning();
         }
+
+        void handleRecvPacket(int recv_id){
+            Client *client = sock_to_client[recv_id];
+            if (client == nullptr) {
+                logger::print("recv action client disconnect?",ERROR);
+                return;
+            }
+
+            // by using safeRecv() in recvPacket() 
+            // make is as an thread to avoid the I/O block
+            //
+            client->recvPacket();
+        }
+
+        bool isclosed(int sock) {
+            fd_set rfd;
+            FD_ZERO(&rfd);
+            FD_SET(sock, &rfd);
+            timeval tv = { 0 };
+            select(sock+1, &rfd, 0, 0, &tv);
+            if (!FD_ISSET(sock, &rfd))
+                return false;
+            int n = 0;
+            ioctl(sock, FIONREAD, &n);
+            return n == 0;
+        }
+
+//-----------------------------------------------------------------------------------------------------------------------
+//
+//             Client join(connect) and leave(disconnect) thread function 
+//
+//-----------------------------------------------------------------------------------------------------------------------
 
         /**
          * @brief handle new connection
@@ -195,26 +238,13 @@ class Server{
             PlayInPlayerLogin loginData = PlayInPlayerLogin(1,joinClient->getSocket()->getSockID());
             joinClient->getSocket()->PropSendEncode(loginData.encode());
 
-            instance->connectionEvent->ClientJoinEvent(joinClient);//because of call this even so use thread 
+            //instance->connectionEvent->ClientJoinEvent(joinClient);//because of call this even so use thread 
             
-            
-            
-
-
             //instance->playerEvent->PlayerSpawnEvent(join);// we should do this after the success login?
             //usleep(1000*1000);//delay 1 sec
             //instance->loadOnlineClient(join); // we should do this after the success login
         }
-
-        /**
-         * @brief can do like /stop (stop server), /list (list client), /restart (restart the server),etc...
-         * 
-         * @param control which can controll entire system like stop the Running() ,
-         * when stop the Running() also mean to be stop server 
-         */
-        static void consoleCommandLine(void *control){
-
-        }
+        
 
 
         void handleDisConnection(int dis_sock){
@@ -229,12 +259,13 @@ class Server{
             onlineClient.Delete(disconnectClient); // remove client from client list
             FD_CLR(dis_sock,&masterfds); // remove dis_sock from master fds set
             sock_to_client[disconnectClient->getSocket()->getSockID()] = nullptr;
-
+            nickname_list[disconnectClient->getNickname()] = false;
             //below may need a thread to use | or i can just do a function pointer that call a event (event) into it
             
             pthread_t disConnection;
             pthread_create(&disConnection, NULL,( void* (*)(void*))&(this->threadDisConnection), disconnectClient);
         }
+        
         static void threadDisConnection(void *disClient){
             Client *disconnectClient = (Client*) disClient;
             instance->playerEvent->PlayerDespawnEvent(disconnectClient);
@@ -243,77 +274,11 @@ class Server{
             disconnectClient->~Client(); // there may be "only one" that remove the client 
         }
 
-        void handleRecvPacket(int recv_id){
-            Client *client = sock_to_client[recv_id];
-            if (client == nullptr) {
-                logger::print("recv action client disconnect?",ERROR);
-                return;
-            }
-            client->recvPacket();
-            //pthread_t recv_action;
-            //pthread_create(&recv_action, NULL,( void* (*)(void*))&(this->threadRecvPacket), c);
-        }
-
-        //consider to make this as a thread (full note***)
-        // static void threadRecvPacket(void* param){
-        //     Client *c = (Client*) param;
-        //     logger::print("start recv");
-        //     BasePacket *packet = c->getSocket()->recvPacket();
-        //     logger::print("end recv");
-
-        //     if (Packet<PlayOutChat>::instanceof(*packet)){
-        //         Packet<PlayOutChat> chatPacket = Packet<PlayOutChat>(*packet);
-        //         ChatEventData *data = new ChatEventData;
-        //         data->client = c;
-        //         data->message = chatPacket.data->getMessage();
-        //         instance->chatEvent->ClientChatEvent(data);
-        //         //pthread_t disConnection;
-        //         //pthread_create(&disConnection, NULL,( void* (*)(void*))&(this->threadClientChatEvent), data);
-        //     }else if(Packet<PlayOutPlayerMove>::instanceof(*packet)){
-        //         Packet<PlayOutPlayerMove> pack = Packet<PlayOutPlayerMove>(*packet);
-        //         c->setX(pack.data->getX());
-        //         c->setY(pack.data->getY());
-        //         c->setFacing(pack.data->getFace());
-        //         instance->playerEvent->PlayerMovementEvent(c); //consider to make this as a thread
-        //     }else if(Packet<PlayOutPlayerStop>::instanceof(*packet)){
-        //         Packet<PlayOutPlayerStop> pack = Packet<PlayOutPlayerStop>(*packet);
-        //         c->setX(pack.data->getX());
-        //         c->setY(pack.data->getY());
-        //         c->setFacing(pack.data->getFace());
-        //         instance->playerEvent->PlayerStopMovementEvent(c); //consider to make this as a thread
-        //     }else if (Packet<PlayOutPlayerLogin>::instanceof(*packet)){
-        //         Packet<PlayOutPlayerLogin> pack = Packet<PlayOutPlayerLogin>(*packet);
-        //         //logger::print("player send an play out player login packet "+to_string(pack.data->getX())+","+to_string(pack.data->getY()),DANGER);
-                
-        //         int success = 0;
-        //         if (pack.data->getPlayerId() == c->getSocket()->getSockID()) success = 1;
-        //         PlayInLoginSuccess loginSuccess = PlayInLoginSuccess(success,c->getSocket()->getSockID());
-        //         //start send?
-        //         //logger::print(loginSuccess.encode()+" "+to_string(success),DANGER);
-        //         c->getSocket()->PropSendEncode(loginSuccess.encode());
-        //         //usleep(100*1000);//delay 1 m sec
-        //         if (success){
-        //             instance->PlayerEventJoin(c);
-        //             //instance->playerEvent->PlayerSpawnEvent(c);// we should do this after the success login?
-        //             //usleep(100*1000);//delay 1 m sec
-        //             instance->loadOnlineClient(c); // we should do this after the success login
-        //             c->setLoadedSuccess();
-        //         } 
-        //     }
-        //     if (packet == nullptr) {
-        //         logger::print("null packet received",DANGER);
-        //         return;
-        //     }
-        //     delete packet;
-        // }
-
-        static void threadClientChatEvent(void *eventData){
-            ChatEventData * data= (ChatEventData*) eventData;
-            instance->chatEvent->ClientChatEvent(data);
-            
-            delete data;
-        }
-
+//-----------------------------------------------------------------------------------------------------------------------
+//
+//             Server Class method 
+//
+//-----------------------------------------------------------------------------------------------------------------------
 
         int getOnlinePlayers(){
             return onlineClient.Length();
@@ -330,14 +295,12 @@ class Server{
             return false;
         }
 
-        /*void broadcast(BasePacket &packet,Client* without = nullptr){
-            for (ClientList::Iterator it = onlineClient.begin();it != onlineClient.end();it++){
-                if (without == *it) continue;
-                else if ((*it)->isLoadedClient()){
-                    (*it)->getSocket()->PreSendPacket(packet);
-                }
-            }
-        }*/
+        /**
+         * @brief client movement mutlicast
+         * 
+         * @param encode movement encode 
+         * @param without skip certain client
+         */
         void movementUpdate(std::string encode,Client* without = nullptr){
             for (ClientList::Iterator it = onlineClient.begin();it != onlineClient.end();it++){
                 if (without == *it) continue;
@@ -347,19 +310,32 @@ class Server{
             }
         }
 
+
+        /**
+         * @brief for joinedClient load other online client
+         * 
+         * @param joinedClient which is joined and successed passed the check
+         */
         void loadOnlineClient(Client* joinedClient){
             for (ClientList::Iterator it = onlineClient.begin();it != onlineClient.end();it++){
                 if (joinedClient == *it) {
                     continue;
                 }
                 else{
-                    PlayOutPlayerSpawn toJoinedClientSideSpawnOtherClient = PlayOutPlayerSpawn((*it)->getX(),(*it)->getY(),(*it)->getFacing(), (*it)->getSocket()->getSockID());
+                    PlayOutPlayerSpawn toJoinedClientSideSpawnOtherClient = PlayOutPlayerSpawn((*it)->getX(),(*it)->getY(),(*it)->getFacing(), (*it)->getSocket()->getSockID(),(*it)->getNickname());
                     (joinedClient)->getSocket()->PropSendEncode(toJoinedClientSideSpawnOtherClient.encode());
                 }
             }
 
         }
 
+
+        /**
+         * @brief multicast encoded packet
+         * 
+         * @param encode packet that encoded
+         * @param without do not sent to certain client
+         */
         void broadcast(string encode,Client* without = nullptr){
             for (ClientList::Iterator it = onlineClient.begin();it != onlineClient.end();it++){
                 if (without == *it) continue;
@@ -369,6 +345,12 @@ class Server{
             }
         }
 
+        /**
+         * @brief when client send message
+         * 
+         * @param encode encoded message
+         * @param without 
+         */
         void messageBroadCast(string encode,Client* without = nullptr){
             for (ClientList::Iterator it = onlineClient.begin();it != onlineClient.end();it++){
                 if (without == *it) continue;
@@ -378,8 +360,14 @@ class Server{
             }
         }
 
-        void PlayerEventJoin(Client* joinedClient){
-            PlayOutPlayerSpawn clientSpawn = PlayOutPlayerSpawn(joinedClient->getX(),joinedClient->getY(),joinedClient->getFacing(),joinedClient->getSocket()->getSockID()); 
+    
+        /**
+         * @brief when joinedClient spawn then update Other client
+         * 
+         * @param joinedClient 
+         */
+        void updateOnlineClient(Client* joinedClient){
+            PlayOutPlayerSpawn clientSpawn = PlayOutPlayerSpawn(joinedClient->getX(),joinedClient->getY(),joinedClient->getFacing(),joinedClient->getSocket()->getSockID(),joinedClient->getNickname()); 
             for (ClientList::Iterator it = onlineClient.begin();it != onlineClient.end();it++){
                 if (joinedClient == *it) {
                     continue;
@@ -392,19 +380,6 @@ class Server{
             
         }
 
-        
-        bool isclosed(int sock) {
-            fd_set rfd;
-            FD_ZERO(&rfd);
-            FD_SET(sock, &rfd);
-            timeval tv = { 0 };
-            select(sock+1, &rfd, 0, 0, &tv);
-            if (!FD_ISSET(sock, &rfd))
-                return false;
-            int n = 0;
-            ioctl(sock, FIONREAD, &n);
-            return n == 0;
-        }
 };
 Server *Server::instance = nullptr;
 ClientList Server::onlineClient;
@@ -450,47 +425,66 @@ void handleClientRecv(void *client_ptr){
         server->chatEvent->ClientChatEvent(data);
         
 
-        delete data;// remove data
-
-        //pthread_t disConnection;
-        //pthread_create(&disConnection, NULL,( void* (*)(void*))&(this->threadClientChatEvent), data);
+        delete data;
     }else if(Packet<PlayOutPlayerMove>::instanceof(*packet)){
         Packet<PlayOutPlayerMove> pack = Packet<PlayOutPlayerMove>(*packet);
         client->setX(pack.data->getX());
         client->setY(pack.data->getY());
         client->setFacing(pack.data->getFace());
-        server->playerEvent->PlayerMovementEvent(client); //consider to make this as a thread
+        server->playerEvent->PlayerMovementEvent(client); 
     }else if(Packet<PlayOutPlayerStop>::instanceof(*packet)){
         Packet<PlayOutPlayerStop> pack = Packet<PlayOutPlayerStop>(*packet);
         client->setX(pack.data->getX());
         client->setY(pack.data->getY());
         client->setFacing(pack.data->getFace());
-        server->playerEvent->PlayerStopMovementEvent(client); //consider to make this as a thread
-    }else if (Packet<PlayOutPlayerLogin>::instanceof(*packet)){
+        server->playerEvent->PlayerStopMovementEvent(client); 
+    }else if (Packet<PlayOutPlayerLogin>::instanceof(*packet)){ // packet that client login success (but not load map) , success with spawn coord
         Packet<PlayOutPlayerLogin> pack = Packet<PlayOutPlayerLogin>(*packet);
-        //logger::print("player send an play out player login packet "+to_string(pack.data->getX())+","+to_string(pack.data->getY()),DANGER);
-                
         int success = 0;
+        string nickname = pack.data->getNickname();
+
+        //check if nickname is existed
+        while(server->nickname_list.count(nickname) && server->nickname_list[nickname]){
+            if (nickname.size() == 63){
+                nickname = client->getNickname();
+            }
+            nickname += "1";
+        }
+        client->setNickname(nickname);
+        server->nickname_list[nickname] = true;
+
+
         if (pack.data->getPlayerId() == client->getSocket()->getSockID()) success = 1;
-        PlayInLoginSuccess loginSuccess = PlayInLoginSuccess(success,client->getSocket()->getSockID());
-        //start send?
+        PlayInLoginSuccess loginSuccess = PlayInLoginSuccess(success,client->getSocket()->getSockID(),nickname);
+        
+        int spawn_x = pack.data->getX();
+        int spawn_y = pack.data->getY();
+        int spawn_face = pack.data->getFace();
+        
+        
+        client->setX(spawn_x);
+        client->setY(spawn_y);
+        client->setFacing(spawn_face);
+        
         //logger::print(loginSuccess.encode()+" "+to_string(success),DANGER);
-        client->getSocket()->PropSendEncode(loginSuccess.encode());
-        //usleep(100*1000);//delay 1 m sec
+        client->getSocket()->PropSendEncode(loginSuccess.encode()); // success flag 
         if (success){
-            server->PlayerEventJoin(client);
-            //instance->playerEvent->PlayerSpawnEvent(c);// we should do this after the success login?
-            //usleep(100*1000);//delay 1 m sec
-            server->loadOnlineClient(client); // we should do this after the success login
+            server->updateOnlineClient(client);//update other client
+
+
+            //usleep(100*1000);//delay?
+            
+            server->loadOnlineClient(client); // update new join client
             client->setLoadedSuccess(); 
         }
+
+        server->connectionEvent->ClientJoinEvent(client);//because of call this even so use thread
     }
     
     delete packet;
     
     
     client->canRecv = true;
-    logger::print("finished");
 }
 
 bool checkIfDisconnect(int sock_id){
